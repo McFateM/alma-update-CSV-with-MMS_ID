@@ -38,6 +38,25 @@ A Flet/Python desktop application to update the `mms_id` column of a selected CS
 
 ## Usage
 
+### Quick Start (Recommended)
+
+**On Linux/Mac:**
+```bash
+./run.sh
+```
+
+**On Windows:**
+```cmd
+run.bat
+```
+
+These scripts will automatically:
+- Create a virtual environment if needed
+- Install dependencies
+- Launch the application
+
+### Manual Start
+
 1. Run the application:
    ```bash
    python app.py
