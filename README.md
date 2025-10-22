@@ -2,6 +2,28 @@
 
 A Flet/Python desktop application to update the `mms_id` column of a selected CSV file using information gathered from the network reference CSV file at `smb://storage/MEDIADB/DGIngest/All-Digital-Items-MMS_ID-with-File-Internal-Path.csv`.
 
+## Application Flow
+
+```
+1. User selects local CSV file via GUI
+   ↓
+2. User clicks "Process and Update"
+   ↓
+3. Application loads reference CSV from network (or local fallback)
+   ↓
+4. Creates lookup dictionary: Network Number → MMS Id
+   ↓
+5. For each row in local CSV:
+   - If mms_id is empty AND originating_system_id is valid:
+     * Look up originating_system_id in reference
+     * If found, update mms_id with corresponding MMS Id
+   - Otherwise, skip row
+   ↓
+6. Save updated CSV back to original file
+   ↓
+7. Display results to user
+```
+
 ## Features
 
 - **Simple GUI**: Single-page Flet interface for easy file selection and processing
