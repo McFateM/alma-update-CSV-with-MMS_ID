@@ -201,19 +201,41 @@ class AlmaCSVUpdater:
             self.update_progress("Loading reference CSV from network share...")
             self.logger.info(f"Loading reference CSV from: {self.reference_csv_path}")
             
-            # Check if the path exists
+            csv_path_to_use = None
+            
+            # Check if the network path exists
             if not os.path.exists(self.reference_csv_path):
-                error_msg = f"Reference CSV not found at: {self.reference_csv_path}"
-                self.logger.error(error_msg)
-                raise Exception(error_msg)
+                warning_msg = f"⚠️  Network reference CSV not found at: {self.reference_csv_path}"
+                self.logger.warning(warning_msg)
+                self.logger.warning("You may need to mount the //Storage/MEDIADB/DGIngest network folder")
+                
+                # Check for local copy in project directory
+                local_csv_name = "All-Digital-Items-MMS_ID-with-File-Internal-Path.csv"
+                local_csv_path = Path(__file__).parent / local_csv_name
+                
+                if local_csv_path.exists():
+                    csv_path_to_use = str(local_csv_path)
+                    fallback_msg = f"✓ Found local copy: {local_csv_path}"
+                    self.logger.info(fallback_msg)
+                    self.update_progress(fallback_msg)
+                    self.warning_text.value = f"{warning_msg}\n{fallback_msg}\nUsing local copy for processing."
+                    self.warning_text.color = ft.Colors.ORANGE
+                    self.page.update()
+                else:
+                    error_msg = f"Reference CSV not found at network path and no local copy found.\nPlease mount //Storage/MEDIADB/DGIngest or place {local_csv_name} in the project directory."
+                    self.logger.error(error_msg)
+                    raise Exception(error_msg)
+            else:
+                csv_path_to_use = self.reference_csv_path
             
             # Read Network Number and MMS Id as strings to preserve format
-            self.reference_df = pd.read_csv(self.reference_csv_path, dtype={'Network Number': str, 'MMS Id': str})
+            self.reference_df = pd.read_csv(csv_path_to_use, dtype={'Network Number': str, 'MMS Id': str})
             
             # Log column names for debugging
             self.logger.info(f"Reference CSV columns: {list(self.reference_df.columns)}")
             
-            self.update_progress(f"Reference CSV loaded: {len(self.reference_df)} records")
+            success_msg = f"Reference CSV loaded: {len(self.reference_df)} records from {csv_path_to_use}"
+            self.update_progress(success_msg)
             self.logger.info(f"Reference CSV loaded successfully: {len(self.reference_df)} records")
             return True
             
@@ -330,6 +352,7 @@ class AlmaCSVUpdater:
             self.logger.info(f"Processing {len(df)} rows...")
             updated_count = 0
             skipped_count = 0
+            comment_count = 0
             not_found_count = 0
             multiple_matches_count = 0
             not_found_samples = []  # Collect samples of not found IDs
@@ -340,6 +363,16 @@ class AlmaCSVUpdater:
                 # Update progress
                 if idx % 10 == 0:
                     self.update_progress(f"Processing row {idx + 1} of {total_rows}...")
+                
+                # Get the first column value to check for comments
+                first_col_name = df.columns[0]
+                first_col_val = str(row[first_col_name]).strip()
+                
+                # Check if row is a comment (first column starts with #)
+                if first_col_val.startswith('#'):
+                    comment_count += 1
+                    self.logger.info(f"Row {idx + 1}: Comment row detected (starts with #), skipping")
+                    continue
                 
                 # Check if mms_id is empty and originating_system_id is valid
                 mms_id_val = str(row['mms_id']).strip()
@@ -417,6 +450,8 @@ class AlmaCSVUpdater:
             result_message = f"Processing complete!\n"
             if blank_rows_removed > 0:
                 result_message += f"Removed: {blank_rows_removed} blank rows\n"
+            if comment_count > 0:
+                result_message += f"Skipped: {comment_count} comment rows (starting with #)\n"
             result_message += f"Updated: {updated_count} rows\n"
             result_message += f"Skipped (already had mms_id or no originating_system_id): {skipped_count} rows\n"
             result_message += f"Not found in reference: {not_found_count} rows\n"
@@ -444,6 +479,8 @@ class AlmaCSVUpdater:
             self.logger.info("Processing complete!")
             if blank_rows_removed > 0:
                 self.logger.info(f"Removed: {blank_rows_removed} blank rows")
+            if comment_count > 0:
+                self.logger.info(f"Skipped: {comment_count} comment rows (starting with #)")
             self.logger.info(f"Updated: {updated_count} rows")
             self.logger.info(f"Skipped (already had mms_id or no originating_system_id): {skipped_count} rows")
             
